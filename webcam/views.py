@@ -11,6 +11,7 @@ import torch
 import numpy as np
 import datetime
 import time
+from pymf import get_MF_devices
 
 from PIL import Image
 import ssl
@@ -36,34 +37,45 @@ def camera_2(request):
 
 # DISPLAY CAMERA 1 ------------------
 def stream_1():
+	device_list = get_MF_devices()
+	cv_index = None
+	for i, device_name in enumerate(device_list):
+		# find index of camera you want
+		q = input(f"Wanna use {device_name}?\n")
+		if q.strip() == "YES":
+			cv_index = i
+			break
 
-	cam_id = 0
-	vid = cv2.VideoCapture(cam_id)
+	if cv_index is None:
+		print("Not found")
+		return 
+	else:
+		# make sure you use Media Foundation
+		cap = cv2.VideoCapture(cv_index + cv2.CAP_MSMF)
+		while (cap.isOpened):
+			ret, frame = cap.read()
+			#frame, class_count = detection(frame)
 
-	while True:
-		ret, frame = vid.read()
-		#frame, class_count = detection(frame)
+			frame = cv2.resize(frame, (1000, 700))
 
-		frame = cv2.resize(frame, (1000, 700))
+			print("\nObjects in frame: ")
+			row = 0
 
-		print("\nObjects in frame: ")
-		row = 0
-
-		model = torch.hub.load('ultralytics/yolov3', 'custom', path='static/model/wider_total_v1.pt',force_reload=True)
-	
-		results = model(frame).pandas().xyxy[0].values.tolist()
-		print(results)
-		'''
-		for k in range(len(class_count)):
-			if class_count[k] > 0: 
-				row += 1
-				infor = str(obj_classes[k]) + ": " + str(int(class_count[k]))
-				print("  " + infor)
-				frame = cv2.putText(frame,infor,(20,(row+1)*35), cv2.FONT_HERSHEY_SIMPLEX, 1,(255,255,255),2,cv2.LINE_AA)
-'''
-		cv2.imwrite('currentframe.jpg', frame)
-		yield (b'--frame\r\n'
-			   b'Content-Type: image/jpeg\r\n\r\n' + open('currentframe.jpg', 'rb').read() + b'\r\n')
+			model = torch.hub.load('ultralytics/yolov3', 'custom', path='static/model/wider_total_v1.pt',force_reload=True)
+		
+			results = model(frame).pandas().xyxy[0].values.tolist()
+			print(results)
+			'''
+			for k in range(len(class_count)):
+				if class_count[k] > 0: 
+					row += 1
+					infor = str(obj_classes[k]) + ": " + str(int(class_count[k]))
+					print("  " + infor)
+					frame = cv2.putText(frame,infor,(20,(row+1)*35), cv2.FONT_HERSHEY_SIMPLEX, 1,(255,255,255),2,cv2.LINE_AA)
+	'''
+			cv2.imwrite('currentframe.jpg', frame)
+			yield (b'--frame\r\n'
+				b'Content-Type: image/jpeg\r\n\r\n' + open('currentframe.jpg', 'rb').read() + b'\r\n')
 def gen(camera):
 	while True:
 		ret, frame = camera.read()
